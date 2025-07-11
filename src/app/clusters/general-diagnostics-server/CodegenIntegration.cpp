@@ -16,7 +16,7 @@
  */
 
 #include <app/clusters/general-diagnostics-server/CodegenIntegration.h>
-#include <app/clusters/general-diagnostics-server/general-diagnostics-logic.h>
+#include <app/clusters/general-diagnostics-server/general-diagnostics-cluster.h>
 #include <app/static-cluster-config/GeneralDiagnostics.h>
 #include <app/util/config.h>
 #include <data-model-providers/codegen/CodegenDataModelProvider.h>
@@ -34,9 +34,9 @@ static_assert((GeneralDiagnostics::StaticApplicationConfig::kFixedClusterConfig.
 
 namespace {
 #ifdef ZCL_USING_TIME_SYNCHRONIZATION_CLUSTER_SERVER
-LazyRegisteredServerCluster<GeneralDiagnosticsCluster<DeviceLayerGeneralDiagnosticsLogic, true>> gServer;
+LazyRegisteredServerCluster<GeneralDiagnosticsCluster> gServer;
 #else
-LazyRegisteredServerCluster<GeneralDiagnosticsCluster<DeviceLayerGeneralDiagnosticsLogic, false>> gServer;
+LazyRegisteredServerCluster<GeneralDiagnosticsCluster> gServer;
 #endif
 
 // compile-time evaluated method if "is <EP>::GeneralDiagnostics::<ATTR>" enabled
