@@ -17,6 +17,7 @@
 #pragma once
 
 #include <app/AttributeValueEncoder.h>
+#include <app/server/Server.h>
 #include <app/TestEventTriggerDelegate.h>
 #include <app/data-model-provider/MetadataTypes.h>
 #include <app/server-cluster/DefaultServerCluster.h>
@@ -67,10 +68,42 @@ public:
 
     DataModel::ActionReturnStatus
     HandleTestEventTrigger(const GeneralDiagnostics::Commands::TestEventTrigger::DecodableType & commandData);
+
+    template <bool usingTimeSynchClusterServer>
     std::optional<DataModel::ActionReturnStatus>
     HandleTimeSnapshot(CommandHandler & handler, const ConcreteCommandPath & commandPath,
-                       const GeneralDiagnostics::Commands::TimeSnapshot::DecodableType & commandData,
-                       bool usingTimeSynchClusterServer);
+                       const GeneralDiagnostics::Commands::TimeSnapshot::DecodableType & commandData){
+        ChipLogError(Zcl, "Received TimeSnapshot command!");
+
+        chip::app::Clusters::GeneralDiagnostics::Commands::TimeSnapshotResponse::Type response;
+
+        System::Clock::Microseconds64 posix_time_us{ 0 };
+
+        // Only consider real time if time sync cluster is actually enabled. Avoids
+        // likelihood of frequently reporting unsynced time.
+        if (usingTimeSynchClusterServer)
+        {
+            CHIP_ERROR posix_time_err = System::SystemClock().GetClock_RealTime(posix_time_us);
+            if (posix_time_err != CHIP_NO_ERROR)
+            {
+                ChipLogError(Zcl, "Failed to get POSIX real time: %" CHIP_ERROR_FORMAT, posix_time_err.Format());
+                posix_time_us = System::Clock::Microseconds64{ 0 };
+            }
+        }
+
+        System::Clock::Milliseconds64 system_time_ms =
+            std::chrono::duration_cast<System::Clock::Milliseconds64>(Server::GetInstance().TimeSinceInit());
+
+        response.systemTimeMs = static_cast<uint64_t>(system_time_ms.count());
+        if (posix_time_us.count() != 0)
+        {
+            response.posixTimeMs.SetNonNull(
+                static_cast<uint64_t>(std::chrono::duration_cast<System::Clock::Milliseconds64>(posix_time_us).count()));
+        }
+        handler.AddResponse(commandPath, response);
+        return std::nullopt;
+    }
+
     std::optional<DataModel::ActionReturnStatus>
     HandlePayloadTestRequest(CommandHandler & handler, const ConcreteCommandPath & commandPath,
                              const GeneralDiagnostics::Commands::PayloadTestRequest::DecodableType & commandData);

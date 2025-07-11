@@ -132,7 +132,7 @@ public:
         case GeneralDiagnostics::Commands::TimeSnapshot::Id: {
             GeneralDiagnostics::Commands::TimeSnapshot::DecodableType request_data;
             ReturnErrorOnFailure(request_data.Decode(input_arguments));
-            return LOGIC::HandleTimeSnapshot(*handler, request.path, request_data, timeSynchronization);
+            return LOGIC::template HandleTimeSnapshot<timeSynchronization>(*handler, request.path, request_data);
         }
         case GeneralDiagnostics::Commands::PayloadTestRequest::Id: {
             GeneralDiagnostics::Commands::PayloadTestRequest::DecodableType request_data;

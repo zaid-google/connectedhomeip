@@ -70,42 +70,6 @@ GeneralDiagnosticsLogic::HandleTestEventTrigger(const Commands::TestEventTrigger
 }
 
 std::optional<DataModel::ActionReturnStatus>
-GeneralDiagnosticsLogic::HandleTimeSnapshot(CommandHandler & handler, const ConcreteCommandPath & commandPath,
-                                            const Commands::TimeSnapshot::DecodableType & commandData,
-                                            bool usingTimeSynchClusterServer)
-{
-    ChipLogError(Zcl, "Received TimeSnapshot command!");
-
-    Commands::TimeSnapshotResponse::Type response;
-
-    System::Clock::Microseconds64 posix_time_us{ 0 };
-
-    // Only consider real time if time sync cluster is actually enabled. Avoids
-    // likelihood of frequently reporting unsynced time.
-    if (usingTimeSynchClusterServer)
-    {
-        CHIP_ERROR posix_time_err = System::SystemClock().GetClock_RealTime(posix_time_us);
-        if (posix_time_err != CHIP_NO_ERROR)
-        {
-            ChipLogError(Zcl, "Failed to get POSIX real time: %" CHIP_ERROR_FORMAT, posix_time_err.Format());
-            posix_time_us = System::Clock::Microseconds64{ 0 };
-        }
-    }
-
-    System::Clock::Milliseconds64 system_time_ms =
-        std::chrono::duration_cast<System::Clock::Milliseconds64>(Server::GetInstance().TimeSinceInit());
-
-    response.systemTimeMs = static_cast<uint64_t>(system_time_ms.count());
-    if (posix_time_us.count() != 0)
-    {
-        response.posixTimeMs.SetNonNull(
-            static_cast<uint64_t>(std::chrono::duration_cast<System::Clock::Milliseconds64>(posix_time_us).count()));
-    }
-    handler.AddResponse(commandPath, response);
-    return std::nullopt;
-}
-
-std::optional<DataModel::ActionReturnStatus>
 GeneralDiagnosticsLogic::HandlePayloadTestRequest(CommandHandler & handler, const ConcreteCommandPath & commandPath,
                                                   const Commands::PayloadTestRequest::DecodableType & commandData)
 {
