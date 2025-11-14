@@ -187,6 +187,10 @@ public:
 
     uint32_t GetNumActiveWriteHandlers() const;
 
+    uint32_t GetNumMessagesReceived() const { return mNumMessagesReceived; }
+
+    uint32_t GetNumReleasedSubscriptions() const { return mNumReleasedSubscriptions; }
+
     /**
      * Returns the handler at a particular index within the active handler list.
      */
@@ -741,6 +745,8 @@ private:
         kInitialized    // The object has been fully initialized and is ready for use.
     };
     State mState = State::kUninitialized;
+    uint32_t mNumMessagesReceived = 0;
+    uint32_t mNumReleasedSubscriptions = 0;
 
     // Changes the current exchange context of a InteractionModelEngine to a given context
     class CurrentExchangeValueScope

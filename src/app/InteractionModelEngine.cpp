@@ -560,6 +560,11 @@ void InteractionModelEngine::OnDone(ReadHandler & apReadObj)
     mReportingEngine.ResetReadHandlerTracker(&apReadObj);
 
     mReadHandlers.ReleaseObject(&apReadObj);
+
+    if(apReadObj.IsType(ReadHandler::InteractionType::Subscribe)) {
+        mNumReleasedSubscriptions++;
+    }
+
     TryToResumeSubscriptions();
 }
 
@@ -1052,6 +1057,10 @@ CHIP_ERROR InteractionModelEngine::OnMessageReceived(Messaging::ExchangeContext 
 
     // Ensure that DataModel::Provider has access to the exchange the message was received on.
     CurrentExchangeValueScope scopedExchangeContext(*this, apExchangeContext);
+
+    if(aPayloadHeader.GetProtocolID() == Protocols::InteractionModel::Id) {
+        mNumMessagesReceived++;
+    }
 
     // Group Message can only be an InvokeCommandRequest or WriteRequest
     if (apExchangeContext->IsGroupExchangeContext() &&

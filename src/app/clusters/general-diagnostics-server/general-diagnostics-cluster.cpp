@@ -17,6 +17,7 @@
 
 #include <app-common/zap-generated/cluster-objects.h>
 #include <app/clusters/general-diagnostics-server/general-diagnostics-cluster.h>
+#include <app/InteractionModelEngine.h>
 #include <app/server-cluster/AttributeListBuilder.h>
 #include <app/server-cluster/DefaultServerCluster.h>
 #include <app/server/Server.h>
@@ -274,6 +275,17 @@ DataModel::ActionReturnStatus GeneralDiagnosticsCluster::ReadAttribute(const Dat
     case GeneralDiagnostics::Attributes::TestEventTriggersEnabled::Id: {
         bool isTestEventTriggersEnabled = IsTestEventTriggerEnabled();
         return encoder.Encode(isTestEventTriggersEnabled);
+    }
+    case GeneralDiagnostics::Attributes::DeviceLoadStatus::Id: {
+        auto interactionModel = InteractionModelEngine::GetInstance();
+        uint32_t numCurrentSubscriptions = interactionModel->GetNumActiveReadHandlers(ReadHandler::InteractionType::Subscribe);
+        GeneralDiagnostics::Structs::DeviceLoadStruct::Type load = {
+            .currentSubscriptions = numCurrentSubscriptions,
+            .currentSubscriptionsForFabric = interactionModel->GetNumActiveReadHandlers(ReadHandler::InteractionType::Subscribe, encoder.AccessingFabricIndex()),
+            .totalInteractionModelMessagesReceived = interactionModel->GetNumMessagesReceived(),
+            .totalSubscriptionsEstablished = numCurrentSubscriptions + interactionModel->GetNumReleasedSubscriptions(),
+        };
+        return encoder.Encode(load);
     }
         // Note: Attribute ID 0x0009 was removed (#30002).
 
