@@ -19,3 +19,9 @@ buildconfig = "${build_root}/config/BUILDCONFIG.gn"
 
 # CHIP uses angle bracket includes.
 check_system_includes = true
+
+default_args = {
+  #  import("//args.gni")
+  chip_support_thread_meshcop = false
+  chip_inet_config_enable_ipv4 = false
+}

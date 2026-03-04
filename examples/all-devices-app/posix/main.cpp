@@ -40,7 +40,12 @@
 #include <string>
 #include <system/SystemLayer.h>
 
+#include <AppCommandDelegate.h>
 #include <TermHandling.h>
+#include <devices/boolean-state-sensor/BooleanStateSensorDevice.h>
+#include <devices/interface/SingleEndpointDevice.h>
+#include <devices/occupancy-sensor/OccupancySensorDevice.h>
+#include <devices/on-off-light/LoggingOnOffLightDevice.h>
 
 using namespace chip;
 using namespace chip::app;
@@ -152,6 +157,7 @@ public:
             auto device = DeviceFactory::GetInstance().Create(config.type);
             VerifyOrReturnError(device, CHIP_ERROR_NO_MEMORY);
             ReturnErrorOnFailure(device->Register(config.endpoint, mDataModelProvider, kInvalidEndpointId));
+            ChipLogProgress(AppServer, "Registered type %s on endpoint ID %u", config.type.c_str(), config.endpoint);
             mConstructedDevices.push_back(std::move(device));
         }
 
@@ -170,6 +176,8 @@ public:
 
     chip::app::CodeDrivenDataModelProvider & DataModelProvider() { return mDataModelProvider; }
 
+    const std::vector<std::unique_ptr<DeviceInterface>> & GetConstructedDevices() const { return mConstructedDevices; }
+
 private:
     Context mContext;
     chip::app::DefaultAttributePersistenceProvider mAttributePersistence;
@@ -182,6 +190,9 @@ private:
 
 void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
 {
+    static AllDevicesAppCommandDelegate sAllDevicesAppCommandDelegate;
+    static NamedPipeCommands sChipNamedPipeCommands;
+
     gMainLoopImplementation = mainLoop;
 
     DeviceFactory::GetInstance().Init(DeviceFactory::Context{
@@ -242,6 +253,42 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
 
     SuccessOrDie(devices.Startup());
 
+    // Set up named pipe for commands
+    const char * pipePath = AppOptions::GetNamedPipePath();
+    if (strlen(pipePath) > 0)
+    {
+        auto deviceConfigs = AppOptions::GetDeviceConfigs();
+        const auto & constructedDevices = devices.GetConstructedDevices();
+        for (size_t i = 0; i < deviceConfigs.size(); i++)
+        {
+            const auto & config = deviceConfigs[i];
+            auto * device = constructedDevices[i].get();
+
+            if (config.type == "occupancy-sensor")
+            {
+                auto * occupancyDevice = static_cast<OccupancySensorDevice *>(device);
+                sAllDevicesAppCommandDelegate.RegisterOccupancySensingCluster(config.endpoint, &occupancyDevice->OccupancySensingCluster());
+            }
+            else if (config.type == "contact-sensor" || config.type == "water-leak-detector")
+            {
+                auto * booleanStateDevice = static_cast<BooleanStateSensorDevice *>(device);
+                sAllDevicesAppCommandDelegate.RegisterBooleanStateCluster(config.endpoint, &booleanStateDevice->BooleanState());
+            }
+            else if (config.type == "on-off-light")
+            {
+                auto * lightDevice = static_cast<LoggingOnOffLightDevice *>(device);
+                sAllDevicesAppCommandDelegate.RegisterOnOffCluster(config.endpoint, &lightDevice->OnOffCluster());
+            }
+        }
+        sAllDevicesAppCommandDelegate.RegisterCommandHandlers();
+
+        if (sChipNamedPipeCommands.Start(pipePath, &sAllDevicesAppCommandDelegate) != CHIP_NO_ERROR)
+        {
+            ChipLogError(AppServer, "Failed to start named pipe at %s", pipePath);
+            (void)sChipNamedPipeCommands.Stop();
+        }
+    }
+
     initParams.dataModelProvider             = &devices.DataModelProvider();
     initParams.groupDataProvider             = &gGroupDataProvider;
     initParams.operationalServicePort        = CHIP_PORT;
@@ -301,6 +348,7 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
     }
     gMainLoopImplementation = nullptr;
 
+    (void)sChipNamedPipeCommands.Stop();
     devices.Shutdown();
     Server::GetInstance().Shutdown();
     DeviceLayer::PlatformMgr().Shutdown();

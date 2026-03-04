@@ -153,6 +153,7 @@ void * NamedPipeCommands::EventCommandListenerTask(void * arg)
 
     NamedPipeCommands * self = reinterpret_cast<NamedPipeCommands *>(arg);
 
+    ChipLogProgress(NotSpecified, "Starting named pipes handling on %s", self->mChipEventFifoPath.c_str());
     for (;;)
     {
         int fd = open(self->mChipEventFifoPath.c_str(), O_RDONLY);
@@ -166,14 +167,17 @@ void * NamedPipeCommands::EventCommandListenerTask(void * arg)
         if (readBytes > 0)
         {
             readbuf[readBytes - 1] = '\0';
-            ChipLogProgress(NotSpecified, "Received payload: \"%s\"", readbuf);
+            ChipLogProgress(NotSpecified, "Received payload: '%s'", readbuf);
 
             // Process the received command request from event fifo
-            self->mDelegate->OnEventCommandReceived(readbuf);
+            if (self->mDelegate) {
+                self->mDelegate->OnEventCommandReceived(readbuf);
+            }
         }
 
         close(fd);
     }
+    ChipLogError(NotSpecified, "Done with named pipes handling on %s", self->mChipEventFifoPath.c_str());
 
     return nullptr;
 }

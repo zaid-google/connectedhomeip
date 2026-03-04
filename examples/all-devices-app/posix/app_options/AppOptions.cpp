@@ -31,9 +31,11 @@ using namespace chip::ArgParser;
 constexpr uint16_t kOptionDeviceType = 0xffd0;
 constexpr uint16_t kOptionEndpoint   = 0xffd1;
 constexpr uint16_t kOptionWiFi       = 0xffd2;
+constexpr uint16_t kOptionNamedPipe  = 0xffd3;
 
 std::vector<AppOptions::DeviceConfig> AppOptions::mDeviceConfigs;
 bool AppOptions::mEnableWiFi = false;
+std::string AppOptions::mNamedPipePath;
 
 const std::vector<AppOptions::DeviceConfig> & AppOptions::GetDeviceConfigs()
 {
@@ -135,6 +137,10 @@ bool AppOptions::AllDevicesAppOptionHandler(const char * program, OptionSet * op
         mEnableWiFi = true;
         ChipLogProgress(AppServer, "WiFi usage enabled");
         return true;
+    case kOptionNamedPipe:
+        mNamedPipePath = value;
+        ChipLogProgress(AppServer, "Named pipe path set to %s", value);
+        return true;
     default:
         ChipLogError(Support, "%s: INTERNAL ERROR: Unhandled option: %s\n", program, name);
         return false;
@@ -151,6 +157,7 @@ OptionSet * AppOptions::GetOptions()
 #if CHIP_DEVICE_CONFIG_ENABLE_WIFI
         { "wifi", kNoArgument, kOptionWiFi },
 #endif
+        { "named-pipe", kArgumentRequired, kOptionNamedPipe },
         {}, // need empty terminator
     };
 
@@ -176,6 +183,9 @@ OptionSet * AppOptions::GetOptions()
         result += "  --wifi\n";
         result += "       Enable wifi support for commissioning\n\n";
 #endif
+
+        result += "  --named-pipe <path>\n";
+        result += "       Path to a named pipe to create for JSON commands.\n\n";
 
         return result;
     }();

@@ -50,6 +50,8 @@ public:
 
     static bool EnableWiFi() { return mEnableWiFi; }
 
+    static const char * GetNamedPipePath() { return mNamedPipePath.c_str(); }
+
 private:
     static bool AllDevicesAppOptionHandler(const char * program, chip::ArgParser::OptionSet * options, int identifier,
                                            const char * name, const char * value);
@@ -59,4 +61,5 @@ private:
 
     static std::vector<DeviceConfig> mDeviceConfigs;
     static bool mEnableWiFi;
+    static std::string mNamedPipePath;
 };
