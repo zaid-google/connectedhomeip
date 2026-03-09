@@ -4,6 +4,7 @@
 !.vscode/launch.json
 !.vscode/settings.json
 !.vscode/extensions.json
+.aiexclude
 
 # Platforms
 .DS_Store

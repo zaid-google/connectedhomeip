@@ -77,13 +77,14 @@ void TogglingOccupancySensorDevice::OnHoldTimeChanged(uint16_t holdTime)
 void TogglingOccupancySensorDevice::TimerFired()
 {
     // Flips the occupancy state every kOccupancyStateChangeIntervalSec seconds
-
+#if 0
     bool nextState = !mOccupancySensingCluster.Cluster().IsOccupied();
 
     ChipLogProgress(AppServer, "TogglingOccupancySensorDevice: Toggling occupancy to %s", nextState ? "Occupied" : "Unoccupied");
     mOccupancySensingCluster.Cluster().SetOccupancy(nextState);
 
     VerifyOrDie(mTimerDelegate.StartTimer(this, kOccupancyStateChangeIntervalSec) == CHIP_NO_ERROR);
+#endif
 }
 
 } // namespace app

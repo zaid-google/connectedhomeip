@@ -81,6 +81,83 @@ void StopSignalHandler(int /* signal */)
     }
 }
 
+class AllDevicesAppInfoProvider : public chip::DeviceLayer::DeviceInstanceInfoProvider
+{
+  public:
+    CHIP_ERROR GetVendorName(char * buf, size_t bufSize) override
+    {
+        chip::Platform::CopyString(buf, bufSize, "Google LLC");
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetVendorId(uint16_t & vendorId) override
+    {
+        vendorId = 0xFFF1u;
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetProductName(char * buf, size_t bufSize) override
+    {
+        chip::Platform::CopyString(buf, bufSize, "Google Multi-Device");
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetProductId(uint16_t & productId) override
+    {
+        productId = 0x8000u;
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetPartNumber(char * buf, size_t bufSize) override
+    {
+        chip::Platform::CopyString(buf, bufSize, "GMD-1.6");
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetProductURL(char * buf, size_t bufSize) override
+    {
+        chip::Platform::CopyString(buf, bufSize, "https://google.com");
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetProductLabel(char * buf, size_t bufSize) override
+    {
+        chip::Platform::CopyString(buf, bufSize, "GMD-1.6");
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetSerialNumber(char * buf, size_t bufSize) override
+    {
+        chip::Platform::CopyString(buf, bufSize, "1");
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetManufacturingDate(uint16_t & year, uint8_t & month, uint8_t & day) override
+    {
+        year = 2026u;
+        month = 3u;
+        day = 2u;
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetHardwareVersion(uint16_t & hardwareVersion) override
+    {
+        hardwareVersion = 1;
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetHardwareVersionString(char * buf, size_t bufSize) override
+    {
+        chip::Platform::CopyString(buf, bufSize, "GMD-GENERIC");
+        return CHIP_NO_ERROR;
+    }
+
+    CHIP_ERROR GetRotatingDeviceIdUniqueId(chip::MutableByteSpan & uniqueIdSpan) override
+    {
+        return CHIP_ERROR_NOT_IMPLEMENTED;
+    }
+};
+
 class CodeDrivenDataModelDevices
 {
 public:
@@ -192,6 +269,7 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
 {
     static AllDevicesAppCommandDelegate sAllDevicesAppCommandDelegate;
     static NamedPipeCommands sChipNamedPipeCommands;
+    static AllDevicesAppInfoProvider sDeviceInstanceInfoProvider;
 
     gMainLoopImplementation = mainLoop;
 
@@ -208,6 +286,8 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
 
     gGroupDataProvider.SetStorageDelegate(initParams.persistentStorageDelegate);
     Credentials::SetGroupDataProvider(&gGroupDataProvider);
+
+    DeviceLayer::SetDeviceInstanceInfoProvider(&sDeviceInstanceInfoProvider);
 
     DeviceLayer::DeviceInstanceInfoProvider * provider = DeviceLayer::GetDeviceInstanceInfoProvider();
     if (provider == nullptr)
