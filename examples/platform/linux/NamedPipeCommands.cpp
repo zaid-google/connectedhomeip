@@ -68,7 +68,6 @@ CHIP_ERROR NamedPipeCommands::Start(const std::string & path, const std::string 
         CHIP_ERROR_UNEXPECTED_EVENT);
 
     VerifyOrReturnError((mkfifo(path_out.c_str(), 0666) == 0) || (errno == EEXIST), CHIP_ERROR_OPEN_FAILED);
-
     return CHIP_NO_ERROR;
 }
 
@@ -76,10 +75,10 @@ CHIP_ERROR NamedPipeCommands::Stop()
 {
     VerifyOrReturnError(mStarted, CHIP_NO_ERROR);
 
-    mStarted  = false;
     mDelegate = nullptr;
+    mStarted = false;
 
-    VerifyOrReturnError(pthread_cancel(mChipEventCommandListener) == 0, CHIP_ERROR_CANCELLED);
+//    VerifyOrReturnError(pthread_cancel(mChipEventCommandListener) == 0, CHIP_ERROR_CANCELLED);
 
     // Wait further for the thread to terminate if we had previously created it.
     VerifyOrReturnError(pthread_join(mChipEventCommandListener, nullptr) == 0, CHIP_ERROR_SHUT_DOWN);
@@ -150,19 +149,18 @@ void NamedPipeCommands::WriteToOutPipe(const std::string & json)
 void * NamedPipeCommands::EventCommandListenerTask(void * arg)
 {
     char readbuf[kChipEventCmdBufSize];
-
     NamedPipeCommands * self = reinterpret_cast<NamedPipeCommands *>(arg);
 
     ChipLogProgress(NotSpecified, "Starting named pipes handling on %s", self->mChipEventFifoPath.c_str());
-    for (;;)
+    int fd = open(self->mChipEventFifoPath.c_str(), O_RDONLY);
+    if (fd == -1)
     {
-        int fd = open(self->mChipEventFifoPath.c_str(), O_RDONLY);
-        if (fd == -1)
-        {
-            ChipLogError(NotSpecified, "Failed to open Event FIFO");
-            break;
-        }
+        ChipLogError(NotSpecified, "Failed to open Event FIFO");
+        self->mStarted = false;
+    }
 
+    while (self->mStarted)
+    {
         ssize_t readBytes = read(fd, readbuf, kChipEventCmdBufSize);
         if (readBytes > 0)
         {
@@ -174,9 +172,8 @@ void * NamedPipeCommands::EventCommandListenerTask(void * arg)
                 self->mDelegate->OnEventCommandReceived(readbuf);
             }
         }
-
-        close(fd);
     }
+    close(fd);
     ChipLogError(NotSpecified, "Done with named pipes handling on %s", self->mChipEventFifoPath.c_str());
 
     return nullptr;

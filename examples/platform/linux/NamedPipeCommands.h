@@ -19,6 +19,7 @@
 #pragma once
 
 #include <lib/core/CHIPError.h>
+#include <atomic>
 #include <pthread.h>
 #include <string>
 
@@ -39,7 +40,7 @@ public:
     const std::string & OutPath() const { return mChipEventFifoPathOut; }
 
 private:
-    bool mStarted = false;
+    std::atomic<bool> mStarted{false};
     pthread_t mChipEventCommandListener;
     std::string mChipEventFifoPath;
     std::string mChipEventFifoPathOut;

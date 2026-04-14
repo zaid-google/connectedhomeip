@@ -136,8 +136,8 @@ class AllDevicesAppInfoProvider : public chip::DeviceLayer::DeviceInstanceInfoPr
     CHIP_ERROR GetManufacturingDate(uint16_t & year, uint8_t & month, uint8_t & day) override
     {
         year = 2026u;
-        month = 3u;
-        day = 2u;
+        month = 4u;
+        day = 14;
         return CHIP_NO_ERROR;
     }
 
@@ -372,6 +372,7 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
 
         if (sChipNamedPipeCommands.Start(pipePath, &sAllDevicesAppCommandDelegate) != CHIP_NO_ERROR)
         {
+            VerifyOrDie(false && "POW!");
             ChipLogError(AppServer, "Failed to start named pipe at %s", pipePath);
             (void)sChipNamedPipeCommands.Stop();
         }
