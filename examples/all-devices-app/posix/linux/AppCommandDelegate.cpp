@@ -16,6 +16,9 @@
  */
 
 #include "AppCommandDelegate.h"
+
+#include <app-common/zap-generated/cluster-objects.h>
+#include <app/clusters/basic-information/BasicInformationCluster.h>
 #include <app/clusters/boolean-state-server/BooleanStateCluster.h>
 #include <app/clusters/occupancy-sensor-server/OccupancySensingCluster.h>
 #include <app/clusters/on-off-server/OnOffCluster.h>
@@ -32,6 +35,24 @@ struct CommandContext
     EndpointId endpointId;
     AllDevicesAppCommandDelegate * delegate;
     NamedPipeCommandHandler * handler;
+};
+
+class IncreaseConfigurationVersionCommandHandler : public NamedPipeCommandHandler
+{
+public:
+    const char * GetName() const override { return "IncreaseConfigurationVersion"; }
+    void Handle(const Json::Value & json, AllDevicesAppCommandDelegate * delegate, EndpointId endpointId) override
+    {
+        auto * cluster = delegate->GetBasicInformationClusterByEndpoint(endpointId);
+        if (!cluster)
+        {
+            ChipLogError(AppServer, "BasicInformationCluster not found on endpoint %d", endpointId);
+            return;
+        }
+
+        CHIP_ERROR err = cluster->IncreaseConfigurationVersion();
+        ChipLogProgress(AppServer, "IncreaseConfigurationVersion on endpoint %d: %" CHIP_ERROR_FORMAT, endpointId, err.Format());
+    }
 };
 
 class SetOccupancyCommandHandler : public NamedPipeCommandHandler
@@ -192,6 +213,11 @@ void AllDevicesAppCommandDelegate::RegisterBooleanStateCluster(chip::EndpointId 
     mBooleanStateClusters.push_back({ endpoint, cluster });
 }
 
+void AllDevicesAppCommandDelegate::RegisterBasicInformationCluster(chip::EndpointId endpoint, chip::app::Clusters::BasicInformationCluster * cluster)
+{
+    mBasicInformationClusters.push_back({ endpoint, cluster });
+}
+
 chip::app::Clusters::OnOffCluster * AllDevicesAppCommandDelegate::GetOnOffClusterByEndpoint(chip::EndpointId endpoint)
 {
     for (auto & entry : mOnOffClusters)
@@ -228,6 +254,18 @@ chip::app::Clusters::BooleanStateCluster * AllDevicesAppCommandDelegate::GetBool
     return nullptr;
 }
 
+chip::app::Clusters::BasicInformationCluster * AllDevicesAppCommandDelegate::GetBasicInformationClusterByEndpoint(chip::EndpointId endpoint)
+{
+    for (auto & entry : mBasicInformationClusters)
+    {
+        if (entry.endpoint == endpoint)
+        {
+            return entry.cluster;
+        }
+    }
+    return nullptr;
+}
+
 void AllDevicesAppCommandDelegate::RegisterCommandHandler(std::unique_ptr<NamedPipeCommandHandler> handler)
 {
     mCommandHandlers[handler->GetName()] = std::move(handler);
@@ -235,6 +273,7 @@ void AllDevicesAppCommandDelegate::RegisterCommandHandler(std::unique_ptr<NamedP
 
 void AllDevicesAppCommandDelegate::RegisterCommandHandlers()
 {
+    RegisterCommandHandler(std::make_unique<IncreaseConfigurationVersionCommandHandler>());
     RegisterCommandHandler(std::make_unique<SetOccupancyCommandHandler>());
     RegisterCommandHandler(std::make_unique<SetHoldTimeCommandHandler>());
     RegisterCommandHandler(std::make_unique<SetBooleanStateCommandHandler>());

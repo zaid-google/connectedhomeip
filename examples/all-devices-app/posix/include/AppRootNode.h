@@ -72,6 +72,17 @@ public:
         return mRootNodeDevice;
     }
 
+    RootNodeDevice & RootDeviceAsRootNode()
+    {
+#if CHIP_DEVICE_CONFIG_ENABLE_WIFI
+        if (mEnabledFeatures.Has(EnabledFeatures::kWiFi))
+        {
+            return mWiFiRootNodeDevice;
+        }
+#endif
+        return mRootNodeDevice;
+    }
+
 private:
     BitFlags<EnabledFeatures> mEnabledFeatures;
 

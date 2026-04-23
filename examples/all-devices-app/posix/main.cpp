@@ -255,6 +255,8 @@ public:
 
     chip::app::CodeDrivenDataModelProvider & DataModelProvider() { return mDataModelProvider; }
 
+    AppRootNode & RootNode() { return mRootNode; }
+
     const std::vector<std::unique_ptr<DeviceInterface>> & GetConstructedDevices() const { return mConstructedDevices; }
 
 private:
@@ -372,6 +374,8 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
                 sAllDevicesAppCommandDelegate.RegisterOnOffCluster(config.endpoint, &lightDevice->OnOffCluster());
             }
         }
+
+        sAllDevicesAppCommandDelegate.RegisterBasicInformationCluster(kRootEndpointId, &devices.RootNode().RootDeviceAsRootNode().BasicInformation());
         sAllDevicesAppCommandDelegate.RegisterCommandHandlers();
 
         if (sChipNamedPipeCommands.Start(pipePath, &sAllDevicesAppCommandDelegate) != CHIP_NO_ERROR)
