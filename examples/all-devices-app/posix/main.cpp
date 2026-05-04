@@ -353,7 +353,7 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
     const char * pipePath = AppOptions::GetNamedPipePath();
     if (strlen(pipePath) > 0)
     {
-        auto deviceConfigs = AppOptions::GetDeviceConfigs();
+        auto deviceConfigs = AppOptions::GetDeviceTypeEntries();
         const auto & constructedDevices = devices.GetConstructedDevices();
         for (size_t i = 0; i < deviceConfigs.size(); i++)
         {
