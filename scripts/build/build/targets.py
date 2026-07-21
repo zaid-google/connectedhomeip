@@ -53,6 +53,7 @@ _ALL_DEVICES_APP_DEVICES = [
     'device-energy-management',
     'dimmable-light',
     'dimmable-plug-in-unit',
+    'dimmer-switch',
     'dishwasher',
     'extractor-hood',
     'fan',
