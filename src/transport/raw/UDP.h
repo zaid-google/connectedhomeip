@@ -149,9 +149,25 @@ private:
 
     static void OnUdpError(Inet::UDPEndPoint * endPoint, CHIP_ERROR err, const Inet::IPPacketInfo * pktInfo);
 
+    struct MulticastGroupEntry
+    {
+        Inet::IPAddress mAddress;
+        Inet::UDPEndPointHandle mEndPoint;
+    };
+
+    Inet::EndPointManager<Inet::UDPEndPoint> * mEndPointManager = nullptr;
     Inet::UDPEndPointHandle mUDPEndPoint;                                 ///< UDP socket used by the transport
     Inet::IPAddressType mUDPEndpointType = Inet::IPAddressType::kUnknown; ///< Socket listening type
     State mState                         = State::kNotReady;              ///< State of the UDP transport
+
+    // TODO(#72056) the value for max groups can be different for legacy groups vs groupcast implemntations (see the GroupDatProvider
+    // for similar todo items). For now the lower of the 2 are selected
+    static constexpr size_t kMaxMulticastGroups = (CHIP_CONFIG_MAX_GROUPS_PER_FABRIC > CHIP_CONFIG_MAX_GROUPCAST_MEMBERSHIP_COUNT
+                                                    ? CHIP_CONFIG_MAX_GROUPS_PER_FABRIC
+                                                    : CHIP_CONFIG_MAX_GROUPCAST_MEMBERSHIP_COUNT) *
+        CHIP_CONFIG_MAX_FABRICS;
+    MulticastGroupEntry mMulticastGroupEndPoints[kMaxMulticastGroups];
+    size_t mMulticastGroupCount = 0;
 };
 
 } // namespace Transport

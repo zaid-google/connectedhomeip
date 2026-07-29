@@ -43,7 +43,8 @@ CHIP_ERROR UDP::Init(UdpListenParameters & params)
         Close();
     }
 
-    err = params.GetEndPointManager()->NewEndPoint(mUDPEndPoint);
+    mEndPointManager = params.GetEndPointManager();
+    err = mEndPointManager->NewEndPoint(mUDPEndPoint);
     SuccessOrExit(err);
 
     mUDPEndPoint->SetNativeParams(params.GetNativeParams());
@@ -80,6 +81,16 @@ uint16_t UDP::GetBoundPort()
 
 void UDP::Close()
 {
+    for (size_t i = 0; i < mMulticastGroupCount; i++)
+    {
+        if (mMulticastGroupEndPoints[i].mEndPoint)
+        {
+            mMulticastGroupEndPoints[i].mEndPoint->Close();
+            mMulticastGroupEndPoints[i].mEndPoint.Release();
+        }
+    }
+    mMulticastGroupCount = 0;
+
     mUDPEndPoint.Release();
     mState = State::kNotReady;
 }
@@ -137,14 +148,100 @@ CHIP_ERROR UDP::MulticastGroupJoinLeave(const Transport::PeerAddress & address, 
     char addressStr[Transport::PeerAddress::kMaxToStringSize];
     address.ToString(addressStr, Transport::PeerAddress::kMaxToStringSize);
 
+    const Inet::IPAddress & groupAddr = address.GetIPAddress();
+    Inet::InterfaceId intfId          = mUDPEndPoint ? mUDPEndPoint->GetBoundInterface() : Inet::InterfaceId::Null();
+
     if (join)
     {
         ChipLogProgress(Inet, "Joining Multicast Group with address %s", addressStr);
-        return mUDPEndPoint->JoinMulticastGroup(mUDPEndPoint->GetBoundInterface(), address.GetIPAddress());
-    }
 
-    ChipLogProgress(Inet, "Leaving Multicast Group with address %s", addressStr);
-    return mUDPEndPoint->LeaveMulticastGroup(mUDPEndPoint->GetBoundInterface(), address.GetIPAddress());
+        // If unicast listening port is already CHIP_PORT (5540), join directly on mUDPEndPoint
+        if (mUDPEndPoint && mUDPEndPoint->GetBoundPort() == CHIP_PORT)
+        {
+            return mUDPEndPoint->JoinMulticastGroup(intfId, groupAddr);
+        }
+
+        // If unicast listening port is not CHIP_PORT (5540), create a dedicated listener on port 5540
+        // that is specific to the group address.
+        for (size_t i = 0; i < mMulticastGroupCount; i++)
+        {
+            if (mMulticastGroupEndPoints[i].mAddress == groupAddr)
+            {
+                return CHIP_NO_ERROR;
+            }
+        }
+
+        VerifyOrReturnError(mMulticastGroupCount < kMaxMulticastGroups, CHIP_ERROR_NO_MEMORY);
+        VerifyOrReturnError(mEndPointManager != nullptr, CHIP_ERROR_INCORRECT_STATE);
+
+        Inet::UDPEndPointHandle groupEndPoint;
+        ReturnErrorOnFailure(mEndPointManager->NewEndPoint(groupEndPoint));
+
+        // Bind specifically to groupAddr (multicast IPv6 address) on port 5540 (CHIP_PORT).
+        // This ensures the socket ONLY matches multicast packets sent to groupAddr,
+        // preventing unicast traffic from being load-balanced onto this socket.
+        CHIP_ERROR err = groupEndPoint->Bind(mUDPEndpointType, groupAddr, CHIP_PORT, intfId);
+        if (err != CHIP_NO_ERROR)
+        {
+            ChipLogError(Inet, "Failed to bind group multicast endpoint to port %d: %" CHIP_ERROR_FORMAT, CHIP_PORT, err.Format());
+            groupEndPoint.Release();
+            return err;
+        }
+
+        err = groupEndPoint->JoinMulticastGroup(intfId, groupAddr);
+        if (err != CHIP_NO_ERROR)
+        {
+            ChipLogError(Inet, "Failed to join group multicast group: %" CHIP_ERROR_FORMAT, err.Format());
+            groupEndPoint.Release();
+            return err;
+        }
+
+        err = groupEndPoint->Listen(OnUdpReceive, OnUdpError, this);
+        if (err != CHIP_NO_ERROR)
+        {
+            ChipLogError(Inet, "Failed to listen on group multicast endpoint: %" CHIP_ERROR_FORMAT, err.Format());
+            groupEndPoint.Release();
+            return err;
+        }
+
+        mMulticastGroupEndPoints[mMulticastGroupCount++] = { groupAddr, std::move(groupEndPoint) };
+        return CHIP_NO_ERROR;
+    }
+    else
+    {
+        ChipLogProgress(Inet, "Leaving Multicast Group with address %s", addressStr);
+
+        if (mUDPEndPoint && mUDPEndPoint->GetBoundPort() == CHIP_PORT)
+        {
+            return mUDPEndPoint->LeaveMulticastGroup(intfId, groupAddr);
+        }
+
+        for (size_t i = 0; i < mMulticastGroupCount; i++)
+        {
+            if (mMulticastGroupEndPoints[i].mAddress == groupAddr)
+            {
+                if (mMulticastGroupEndPoints[i].mEndPoint)
+                {
+                    CHIP_ERROR leaveErr = mMulticastGroupEndPoints[i].mEndPoint->LeaveMulticastGroup(intfId, groupAddr);
+                    if (leaveErr != CHIP_NO_ERROR)
+                    {
+                        ChipLogError(Inet, "Failed to leave multicast group: %" CHIP_ERROR_FORMAT, leaveErr.Format());
+                    }
+                    mMulticastGroupEndPoints[i].mEndPoint->Close();
+                    mMulticastGroupEndPoints[i].mEndPoint.Release();
+                }
+
+                for (size_t j = i; j < mMulticastGroupCount - 1; j++)
+                {
+                    mMulticastGroupEndPoints[j] = std::move(mMulticastGroupEndPoints[j + 1]);
+                }
+                mMulticastGroupCount--;
+                break;
+            }
+        }
+
+        return CHIP_NO_ERROR;
+    }
 }
 
 } // namespace Transport
